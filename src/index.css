@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Hubot+Sans:ital,wght@0,200..900;1,200..900&family=Unkempt:wght@400;700&display=swap');
+@import "tailwindcss";
+
+
+
+::-webkit-scrollbar{
+  display: none;
+}
+
+.hubot-sans{
+  font-family: "Hubot Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 300;
+  font-style: normal;
+  font-variation-settings:
+    "wdth" 100;
+}
+.unkempt-regular {
+  font-family: "Unkempt", cursive;
+  font-weight: 400;
+  font-style: normal;
+}
+body{
+  font-family: "Hubot Sans", sans-serif;
+}
