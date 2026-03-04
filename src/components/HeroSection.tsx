@@ -37,7 +37,7 @@ const HeroSection = () => {
           onClick={handleShowInput}
           className="mt-8 px-7 py-3 rounded-xl bg-amber-300 text-black font-medium cursor-pointer text-sm shadow-lg shadow-amber-400/20 hover:bg-amber-200 transition-colors"
         >
-          Listen Now <img src="/circle-play.svg" className="inline-block h-4" alt="" />
+          Watch Now <img src="/circle-play.svg" className="inline-block h-4" alt="" />
         </button>
       ) : (
         <div
