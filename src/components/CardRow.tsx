@@ -13,16 +13,7 @@ type CardRowProps = {
   videos: Video[]
 }
 
-const VIDEOS: Video[] = [
-  {
-    id: "dQw4w9WgXcQ",
-    title: "Dare to Dream",
-    channel: "Channel 2.0",
-    description: "A 17 year old who had an ick for being average and how he achieved greatness aged 24.",
-    thumb: "/img4.jpg",
-    duration: 212,
-  },
-]
+
 
 function formatTime(s: number) {
   if (!s) return '0:00'
