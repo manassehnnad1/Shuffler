@@ -12,9 +12,9 @@ type Video = {
 const VIDEOS: Video[] = [
   {
     id: "dQw4w9WgXcQ",
-    title: "Sample Video Title",
-    channel: "Channel Name",
-    description: "A short description of what this video is about. It gives viewers a sense of the content before they dive in...",
+    title: "Dare to Dream",
+    channel: "Channel 2.0",
+    description: "A 17 year old who had an ick for being average and how he achieved greatness aged 24.",
     thumb: "/img4.jpg",
     duration: 212,
   },
