@@ -9,6 +9,10 @@ type Video = {
   duration: number
 }
 
+type CardRowProps = {
+  videos: Video[]
+}
+
 const VIDEOS: Video[] = [
   {
     id: "dQw4w9WgXcQ",
@@ -212,10 +216,10 @@ const VideoCard = ({ video }: VideoCardProps) => {
   )
 }
 
-const CardRow = () => {
+const CardRow = ({ videos }: CardRowProps) => {
   return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 w-full">
-      {VIDEOS.map(video => (
+      {videos.map(video => (
         <VideoCard key={video.id} video={video} />
       ))}
     </div>
