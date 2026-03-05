@@ -4,6 +4,7 @@ import CardRow from "./CardRow"
 import { fetchPlaylist, type Video } from '../lib/youtube'
 import { cosmicShuffle } from '../lib/shuffle'
 
+
 type Proof = {
   src: string
   hex: string | null
@@ -59,7 +60,7 @@ const HeroSection = () => {
 
   return (
     <>
-      <section className="flex flex-col items-center pt-16 pb-12 text-center mt-30">
+      <section className="flex flex-col items-center pt-16 pb-12 text-center mt-50 md:mt-30 mb-95 md:mb-60">
         <LogoStack />
 
         <h1 className="mt-10 text-3xl md:text-5xl text-black">
@@ -100,6 +101,7 @@ const HeroSection = () => {
             </button>
           </div>
         )}
+        
 
         {/* Error */}
         {error && (
@@ -115,11 +117,11 @@ const HeroSection = () => {
             <p className="text-[11px] font-semibold tracking-widest uppercase text-amber-600 mb-1">
               ✦ Cosmic Entropy Proof
             </p>
-            <p className="text-[12px] text-gray-500 font-mono break-all">
+            <p className="text-[12px] text-gray-500 break-all">
               Source: {proof.src}
             </p>
             {proof.hex && (
-              <p className="text-[11px] text-gray-400 font-mono break-all mt-0.5">
+              <p className="text-[11px] text-gray-400  break-all mt-0.5">
                 {proof.hex.slice(0, 32)}…
               </p>
             )}
