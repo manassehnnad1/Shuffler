@@ -23,12 +23,12 @@ const HeroSection = () => {
     <section className="flex flex-col items-center pt-16 pb-12 text-center mt-30">
       <LogoStack />
 
-      <h1 className="mt-10 text-5xl text-black">
+      <h1 className="mt-10 text-3xl md:text-5xl text-black">
         Your playlist. Ordered from orbit.
       </h1>
 
       <p className="mt-4 text-black/40 text-base">
-        Find your perfect match through the music that moves you.
+        Enjoy your videos in the order that understands you.
       </p>
 
       {/* CTA — swaps to input on click */}
