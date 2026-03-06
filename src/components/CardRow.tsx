@@ -1,27 +1,67 @@
-import React, { useState, useRef, useEffect } from 'react'
-
-type Video = {
-  id: string
-  title: string
-  channel: string
-  description: string
-  thumb: string
-  duration: number
-}
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { Video } from '../lib/youtube'
 
 type CardRowProps = {
   videos: Video[]
 }
 
+// ── YouTube IFrame hook ───────────────────────────────────────────────────────
+function useYTPlayer(containerId: string, onEnded: () => void) {
+  const playerRef = useRef<any>(null)
+  const readyRef = useRef(false)
+  const pendingRef = useRef<string | null>(null)
 
+  useEffect(() => {
+    function initPlayer() {
+      playerRef.current = new (window as any).YT.Player(containerId, {
+        height: '100%',
+        width: '100%',
+        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => {
+            readyRef.current = true
+            if (pendingRef.current) {
+              playerRef.current.loadVideoById(pendingRef.current)
+              pendingRef.current = null
+            }
+          },
+          onStateChange: (e: any) => {
+            if (e.data === (window as any).YT.PlayerState.ENDED) onEnded()
+          },
+        },
+      })
+    }
 
-function formatTime(s: number) {
-  if (!s) return '0:00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    if ((window as any).YT && (window as any).YT.Player) {
+      initPlayer()
+    } else {
+      const prev = (window as any).onYouTubeIframeAPIReady
+      ;(window as any).onYouTubeIframeAPIReady = () => {
+        if (prev) prev()
+        initPlayer()
+      }
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script')
+        tag.src = 'https://www.youtube.com/iframe_api'
+        document.head.appendChild(tag)
+      }
+    }
+
+    return () => {
+      try { playerRef.current?.destroy() } catch {}
+    }
+  }, [])
+
+  return useCallback((videoId: string) => {
+    if (readyRef.current && playerRef.current) {
+      playerRef.current.loadVideoById(videoId)
+    } else {
+      pendingRef.current = videoId
+    }
+  }, [])
 }
 
+// ── Icons ─────────────────────────────────────────────────────────────────────
 const YTIcon = () => (
   <svg width="28" height="20" viewBox="0 0 28 20" fill="none">
     <rect width="28" height="20" rx="5" fill="#FF0000"/>
@@ -38,37 +78,27 @@ const FullscreenIcon = () => (
   </svg>
 )
 
-type VideoCardProps = { video: Video }
-
-const VideoCard = ({ video }: VideoCardProps) => {
-  const [playing, setPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+// ── CardRow ───────────────────────────────────────────────────────────────────
+const CardRow = ({ videos }: CardRowProps) => {
+  const [currentIdx, setCurrentIdx] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
-  const elapsed = Math.round(progress * video.duration)
 
+  const playNext = useCallback(() => {
+    setCurrentIdx(i => (i < videos.length - 1 ? i + 1 : i))
+  }, [videos.length])
+
+  const loadVideo = useYTPlayer('yt-player', playNext)
+
+  // load video whenever currentIdx changes
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        setProgress(p => {
-          if (p >= 1) { setPlaying(false); return 1 }
-          return p + 1 / video.duration
-        })
-      }, 1000)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+    if (videos[currentIdx]) {
+      loadVideo(videos[currentIdx].id)
     }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [playing, video.duration])
+  }, [currentIdx, videos])
 
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setProgress(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)))
-  }
-
-  const skip = (dir: 'back' | 'forward') => {
-    setProgress(p => Math.max(0, Math.min(1, p + (dir === 'forward' ? 10 : -10) / video.duration)))
-  }
+  const current = videos[currentIdx]
+  const hasPrev = currentIdx > 0
+  const hasNext = currentIdx < videos.length - 1
 
   const handleFullscreen = () => {
     if (!document.fullscreenElement) containerRef.current?.requestFullscreen()
@@ -76,143 +106,96 @@ const VideoCard = ({ video }: VideoCardProps) => {
   }
 
   return (
-    // w-full + maxWidth: fluid on mobile, capped at 360 on desktop
-    <div
-      ref={containerRef}
-      className="w-full rounded-3xl overflow-hidden"
-      style={{
-        maxWidth: 360,
-        background: '#ffffff',
-        boxShadow: '0 2px 32px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)',
-      }}
-    >
-      {/* ── Thumbnail — aspect ratio keeps height proportional ── */}
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
-        <img
-          src={video.thumb}
-          alt={video.title}
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.5) 100%)' }} />
-
-        <button
-          onClick={handleFullscreen}
-          className="absolute top-3 right-3 flex items-center justify-center rounded-full"
-          style={{ width: 28, height: 28, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', color: 'white' }}
-        >
-          <FullscreenIcon />
-        </button>
-
-        <div
-          className="absolute bottom-3 right-3 px-1.5 py-0.5 rounded text-white text-[10px] font-medium"
-          style={{ background: 'rgba(0,0,0,0.65)' }}
-        >
-          {formatTime(video.duration)}
-        </div>
-      </div>
-
-      {/* ── Info ── */}
-      <div className="px-4 pt-4 pb-1">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-semibold tracking-widest uppercase truncate mr-2" style={{ color: '#aaa' }}>
-            {video.channel}
-          </span>
-          <YTIcon />
-        </div>
-        <h2 className="font-bold text-[17px] leading-snug tracking-tight" style={{ color: '#0f0f0f' }}>
-          {video.title}
-        </h2>
-        <p
-          className="text-[13px] leading-relaxed mt-1.5"
-          style={{
-            color: '#606060',
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
-          {video.description}
-        </p>
-      </div>
-
-      {/* ── Progress ── */}
-      <div className="px-4 mt-3">
-        <div
-          className="relative h-[3px] rounded-full cursor-pointer"
-          style={{ background: '#e9e9e9' }}
-          onClick={seek}
-        >
-          <div
-            className="absolute left-0 top-0 h-full rounded-full"
-            style={{ width: `${progress * 100}%`, background: '#FF0000', transition: 'width 0.5s linear' }}
-          />
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-md"
-            style={{ left: `calc(${progress * 100}% - 6px)`, background: '#FF0000' }}
-          />
-        </div>
-        <div className="flex justify-between mt-1.5">
-          <span className="text-[10px] tabular-nums" style={{ color: '#bbb' }}>{formatTime(elapsed)}</span>
-          <span className="text-[10px] tabular-nums" style={{ color: '#bbb' }}>{formatTime(video.duration)}</span>
-        </div>
-      </div>
-
-      {/* ── Stats + Controls ── */}
-      <div className="flex items-center justify-between px-4 pb-5 mt-2 gap-2">
-        <div className="flex gap-4 flex-shrink-0">
-          <div>
-            <p className="text-[15px] font-bold" style={{ color: '#0f0f0f' }}>{Math.round(progress * 100)}%</p>
-            <p className="text-[10px] mt-0.5" style={{ color: '#bbb' }}>Progress</p>
-          </div>
-          <div>
-            <p className="text-[15px] font-bold" style={{ color: '#0f0f0f' }}>{formatTime(elapsed)}</p>
-            <p className="text-[10px] mt-0.5" style={{ color: '#bbb' }}>Watched</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-0.5 rounded-full px-2 py-1.5 flex-shrink-0" style={{ background: '#f2f2f2' }}>
-          <button onClick={() => skip('back')} className="p-2 rounded-full transition-colors hover:bg-white" style={{ color: '#222' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11 19l-9-7 9-7v14zm11 0l-9-7 9-7v14z"/>
-            </svg>
-          </button>
-
-          <button
-            onClick={() => setPlaying(p => !p)}
-            className="flex items-center justify-center rounded-full mx-1 transition-transform active:scale-90"
-            style={{ width: 40, height: 40, background: '#0f0f0f', color: 'white' }}
-          >
-            {playing ? (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16" rx="1.5"/>
-                <rect x="14" y="4" width="4" height="16" rx="1.5"/>
-              </svg>
-            ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5,3 19,12 5,21"/>
-              </svg>
-            )}
-          </button>
-
-          <button onClick={() => skip('forward')} className="p-2 rounded-full transition-colors hover:bg-white" style={{ color: '#222' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M13 19V5l9 7-9 7zM2 19V5l9 7-9 7z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const CardRow = ({ videos }: CardRowProps) => {
-  return (
     <div className="flex flex-col items-center gap-6 py-8 px-4 w-full">
-      {videos.map(video => (
-        <VideoCard key={video.id} video={video} />
-      ))}
+      <div
+        ref={containerRef}
+        className="w-full rounded-3xl overflow-hidden"
+        style={{
+          maxWidth: 360,
+          background: '#ffffff',
+          boxShadow: '0 2px 32px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)',
+        }}
+      >
+        {/* ── YouTube IFrame embed ── */}
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9', background: '#000' }}>
+          <div id="yt-player" className="absolute inset-0 w-full h-full" />
+
+          {/* Fullscreen button */}
+          <button
+            onClick={handleFullscreen}
+            className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full"
+            style={{ width: 28, height: 28, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(6px)', color: 'white' }}
+          >
+            <FullscreenIcon />
+          </button>
+        </div>
+
+        {/* ── Info ── */}
+        <div className="px-4 pt-4 pb-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-semibold tracking-widest uppercase truncate mr-2" style={{ color: '#aaa' }}>
+              {current.channel}
+            </span>
+            <YTIcon />
+          </div>
+          <h2 className="font-bold text-[17px] leading-snug tracking-tight" style={{ color: '#0f0f0f' }}>
+            {current.title}
+          </h2>
+          {current.description && (
+            <p
+              className="text-[13px] leading-relaxed mt-1.5"
+              style={{
+                color: '#606060',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {current.description}
+            </p>
+          )}
+        </div>
+
+        {/* ── Queue position + Controls ── */}
+        <div className="flex items-center justify-between px-4 pb-5 mt-3 gap-2">
+          {/* Position indicator */}
+          <div>
+            <p className="text-[15px] font-bold" style={{ color: '#0f0f0f' }}>
+              {currentIdx + 1}
+              <span className="text-[12px] font-normal text-[#bbb]"> / {videos.length}</span>
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#bbb' }}>In queue</p>
+          </div>
+
+          {/* Prev / Next controls */}
+          <div className="flex items-center gap-0.5 rounded-full px-2 py-1.5 flex-shrink-0" style={{ background: '#f2f2f2' }}>
+            {/* Prev */}
+            <button
+              onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
+              disabled={!hasPrev}
+              className="p-2 rounded-full transition-colors hover:bg-white disabled:opacity-30"
+              style={{ color: '#222' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11 19l-9-7 9-7v14zm11 0l-9-7 9-7v14z"/>
+              </svg>
+            </button>
+
+            {/* Next */}
+            <button
+              onClick={() => setCurrentIdx(i => Math.min(videos.length - 1, i + 1))}
+              disabled={!hasNext}
+              className="p-2 rounded-full transition-colors hover:bg-white disabled:opacity-30"
+              style={{ color: '#222' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 19V5l9 7-9 7zM2 19V5l9 7-9 7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
